@@ -15,18 +15,20 @@ public class TourGuideService : ITourGuideService
     private readonly ILogger _logger;
     private readonly IGpsUtil _gpsUtil;
     private readonly IRewardsService _rewardsService;
+    private readonly IRewardCentral _rewardCentral;
     private readonly TripPricer.TripPricer _tripPricer;
     public Tracker Tracker { get; private set; }
     private readonly Dictionary<string, User> _internalUserMap = new();
     private const string TripPricerApiKey = "test-server-api-key";
     private bool _testMode = true;
 
-    public TourGuideService(ILogger<TourGuideService> logger, IGpsUtil gpsUtil, IRewardsService rewardsService, ILoggerFactory loggerFactory)
+    public TourGuideService(ILogger<TourGuideService> logger, IGpsUtil gpsUtil, IRewardsService rewardsService, IRewardCentral rewardCentral, ILoggerFactory loggerFactory)
     {
         _logger = logger;
         _tripPricer = new();
         _gpsUtil = gpsUtil;
         _rewardsService = rewardsService;
+        _rewardCentral = rewardCentral;
 
         CultureInfo.CurrentCulture = new CultureInfo("en-US");
 
@@ -90,18 +92,28 @@ public class TourGuideService : ITourGuideService
         return visitedLocation;
     }
 
-    public List<Attraction> GetNearByAttractions(VisitedLocation visitedLocation)
+    public List<object> GetNearByAttractions(VisitedLocation visitedLocation, User user)
     {
-        List<Attraction> nearbyAttractions = new ();
-        foreach (var attraction in _gpsUtil.GetAttractions())
-        {
-            if (_rewardsService.IsWithinAttractionProximity(attraction, visitedLocation.Location))
-            {
-                nearbyAttractions.Add(attraction);
-            }
-        }
+        var userLocation = visitedLocation.Location;
+        var allAttractions = _gpsUtil.GetAttractions();
 
-        return nearbyAttractions;
+        var nearbyAttractions = allAttractions
+            .Select(attraction => new
+            {
+                attractionName = attraction.AttractionName,
+                attractionLatitude = attraction.Latitude,
+                attractionLongitude = attraction.Longitude,
+                userLatitude = userLocation.Latitude,
+                userLongitude = userLocation.Longitude,
+
+                distanceInMiles = _rewardsService.GetDistance(userLocation, new Locations(attraction.Latitude, attraction.Longitude)),
+                rewardPoints = _rewardCentral.GetAttractionRewardPoints(attraction.AttractionId, user.UserId)
+            })
+            .OrderBy(x => x.distanceInMiles)
+            .Take(5)
+            .ToList();
+
+        return nearbyAttractions.Cast<object>().ToList(); 
     }
 
     private void AddShutDownHook()
