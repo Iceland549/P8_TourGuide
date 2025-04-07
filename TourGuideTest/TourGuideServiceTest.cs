@@ -20,6 +20,7 @@ namespace TourGuideTest
             _fixture = fixture;
         }
 
+        [Fact]
         public void Dispose()
         {
             _fixture.Cleanup();
@@ -85,14 +86,14 @@ namespace TourGuideTest
             Assert.Equal(user.UserId, visitedLocation.UserId);
         }
 
-        [Fact(Skip = "Not yet implemented")]
+        [Fact]
         public void GetNearbyAttractions()
         {
             _fixture.Initialize(0);
             var user = new User(Guid.NewGuid(), "jon", "000", "jon@tourGuide.com");
             var visitedLocation = _fixture.TourGuideService.TrackUserLocation(user);
 
-            List<Attraction> attractions = _fixture.TourGuideService.GetNearByAttractions(visitedLocation);
+            List<object> attractions = _fixture.TourGuideService.GetNearByAttractions(visitedLocation, user);
 
             _fixture.TourGuideService.Tracker.StopTracking();
 
